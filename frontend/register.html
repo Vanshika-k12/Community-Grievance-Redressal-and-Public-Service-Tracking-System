@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="max-width: 600px; padding-top: 3rem;">
+        <div class="card">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Citizen Registration</h2>
+            <form id="register-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" id="phone" class="form-control" pattern="[0-9]{10}" title="10 digit phone number" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Select Ward</label>
+                    <select id="ward" class="form-control" required>
+                        <option value="">Loading wards...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" class="form-control" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="confirm-password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Register Account</button>
+                <p style="text-align: center; margin-top: 1rem;">Already have an account? <a href="login.html" style="color: var(--accent-color)">Login here</a>.</p>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const wards = await apiFetch('/wards');
+                const wardSelect = document.getElementById('ward');
+                wardSelect.innerHTML = '<option value="">-- Select Ward --</option>';
+                wards.forEach(w => {
+                    wardSelect.innerHTML += `<option value="${w.WARD_ID}">${w.WARD_NAME}</option>`;
+                });
+            } catch (e) {
+                document.getElementById('ward').innerHTML = '<option value="">Error loading wards</option>';
+            }
+
+            document.getElementById('register-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const pwd = document.getElementById('password').value;
+                if(pwd !== document.getElementById('confirm-password').value) {
+                    showToast('Passwords do not match', 'error');
+                    return;
+                }
+
+                const data = {
+                    name: document.getElementById('name').value,
+                    phone: document.getElementById('phone').value,
+                    email: document.getElementById('email').value,
+                    ward_id: document.getElementById('ward').value,
+                    password: pwd
+                };
+
+                try {
+                    const res = await apiFetch('/register', 'POST', data);
+                    showToast(`Registration successful! Your Citizen ID is: ${res.citizen_id}`);
+                    setTimeout(() => window.location.href = 'login.html', 2500);
+                } catch(err) {} // Error handled in apiFetch
+            });
+        });
+    </script>
+</body>
+</html>

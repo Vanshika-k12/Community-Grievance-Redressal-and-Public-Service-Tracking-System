@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .chart-container { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="max-width: 1400px; padding-top: 2rem;">
+        <h2 style="margin-bottom: 2rem;">System Administration Dashboard</h2>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h4 style="text-align: center; margin-bottom: 1rem;">Complaints by Department</h4>
+                <canvas id="deptChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4 style="text-align: center; margin-bottom: 1rem;">Complaints by Status</h4>
+                <canvas id="statusChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4 style="text-align: center; margin-bottom: 1rem;">Monthly Trend (Last 6 Months)</h4>
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+            <!-- Dept Stats -->
+            <div class="card">
+                <h3 style="margin-bottom: 1rem;">Department Performance</h3>
+                <div class="table-responsive">
+                    <table style="font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th>Department</th>
+                                <th>Total</th>
+                                <th>Avg Resolution (Days)</th>
+                                <th>Score (out of 100)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dept-stats-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Top Wards -->
+            <div class="card">
+                <h3 style="margin-bottom: 1rem;">Top Wards by Volume</h3>
+                <div class="table-responsive">
+                    <table style="font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th>Ward Name</th>
+                                <th>Complaints Count</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-wards-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Escalations -->
+        <div class="card" style="margin-bottom: 2rem; border-left: 5px solid var(--status-escalated);">
+            <h3 style="margin-bottom: 1rem; color: var(--status-escalated);"><i class="fas fa-exclamation-triangle"></i> Recent Escalations</h3>
+            <div class="table-responsive">
+                <table style="font-size: 0.9rem;">
+                    <thead>
+                        <tr>
+                            <th>Complaint ID</th>
+                            <th>Category</th>
+                            <th>Escalation Level</th>
+                            <th>Reason</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="escalations-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- All Complaints Filterable -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3>All Complaints Repository</h3>
+                <button onclick="exportCSV()" class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.9rem;"><i class="fas fa-download"></i> Export CSV</button>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <select id="filter-ward" class="form-control" style="width: 200px;">
+                    <option value="">All Wards</option>
+                </select>
+                <select id="filter-dept" class="form-control" style="width: 200px;">
+                    <option value="">All Departments</option>
+                </select>
+                <select id="filter-status" class="form-control" style="width: 200px;">
+                    <option value="">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Assigned">Assigned</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Escalated">Escalated</option>
+                    <option value="Closed">Closed</option>
+                </select>
+                <button onclick="loadAllComplaints()" class="btn btn-primary" style="padding: 0.5rem 1rem;">Filter</button>
+            </div>
+
+            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table id="all-complaints-table" style="font-size: 0.9rem;">
+                    <thead style="position: sticky; top: 0; background: var(--primary-color);">
+                        <tr>
+                            <th>ID</th>
+                            <th>Citizen</th>
+                            <th>Category</th>
+                            <th>Ward</th>
+                            <th>Assigned Dept</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-complaints-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        requireAuth('admin');
+        let currentComplaintsData = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadFilters();
+            loadCharts();
+            loadDeptStats();
+            loadTopWards();
+            loadEscalations();
+            loadAllComplaints();
+        });
+
+        async function loadFilters() {
+            try {
+                const wards = await apiFetch('/wards');
+                const depts = await apiFetch('/departments');
+                
+                const wSelect = document.getElementById('filter-ward');
+                wards.forEach(w => wSelect.innerHTML += `<option value="${w.WARD_ID}">${w.WARD_NAME}</option>`);
+                
+                const dSelect = document.getElementById('filter-dept');
+                depts.forEach(d => dSelect.innerHTML += `<option value="${d.DEPT_ID}">${d.DEPT_NAME}</option>`);
+            } catch(e) {}
+        }
+
+        async function loadCharts() {
+            try {
+                // Dept Chart
+                const deptData = await apiFetch('/analytics/complaints-by-department');
+                new Chart(document.getElementById('deptChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: deptData.map(d => d.DEPT_NAME),
+                        datasets: [{
+                            label: 'Complaints',
+                            data: deptData.map(d => d.COUNT),
+                            backgroundColor: '#2196f3'
+                        }]
+                    }
+                });
+
+                // Status Chart
+                const statusData = await apiFetch('/analytics/complaints-by-status');
+                new Chart(document.getElementById('statusChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: statusData.map(d => d.STATUS),
+                        datasets: [{
+                            data: statusData.map(d => d.COUNT),
+                            backgroundColor: ['#9e9e9e', '#2196f3', '#ff9800', '#4caf50', '#f44336', '#2c3e50']
+                        }]
+                    }
+                });
+
+                // Trend Chart
+                const trendData = await apiFetch('/analytics/complaints-by-month');
+                new Chart(document.getElementById('trendChart'), {
+                    type: 'line',
+                    data: {
+                        labels: trendData.map(d => d.MONTH),
+                        datasets: [{
+                            label: 'Complaints',
+                            data: trendData.map(d => d.COUNT),
+                            borderColor: '#F5A623',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    }
+                });
+            } catch(e) { console.error('Charts Error:', e); }
+        }
+
+        async function loadDeptStats() {
+            try {
+                const depts = await apiFetch('/departments');
+                const tbody = document.getElementById('dept-stats-body');
+                for(let d of depts) {
+                    const stats = await apiFetch(`/departments/${d.DEPT_ID}/stats`);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${d.DEPT_NAME}</td>
+                            <td>${stats.total_complaints}</td>
+                            <td>${stats.avg_resolution_days || 0}</td>
+                            <td><strong>${stats.performance_score || 0}</strong></td>
+                        </tr>
+                    `;
+                }
+            } catch(e) {}
+        }
+
+        async function loadTopWards() {
+            try {
+                const data = await apiFetch('/analytics/top-wards');
+                const tbody = document.getElementById('top-wards-body');
+                data.forEach(w => {
+                    tbody.innerHTML += `<tr><td>${w.WARD_NAME}</td><td>${w.COUNT}</td></tr>`;
+                });
+            } catch(e) {}
+        }
+
+        async function loadEscalations() {
+            try {
+                const data = await apiFetch('/analytics/escalated');
+                const tbody = document.getElementById('escalations-body');
+                if(data.length === 0) tbody.innerHTML = '<tr><td colspan="5">No escalations found.</td></tr>';
+                data.forEach(e => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><a href="track_complaint.html?id=${e.COMPLAINT_ID}" onclick="sessionStorage.setItem('tempTrackId', ${e.COMPLAINT_ID}); window.location.href='track_complaint.html'; return false;">#${e.COMPLAINT_ID}</a></td>
+                            <td>${e.CATEGORY}</td>
+                            <td>Level ${e.ESCALATION_LEVEL}</td>
+                            <td>${e.REASON || 'Deadline Passed'}</td>
+                            <td>${new Date(e.ESCALATION_DATE).toLocaleDateString()}</td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {}
+        }
+
+        async function loadAllComplaints() {
+            try {
+                let url = '/complaints?';
+                const ward = document.getElementById('filter-ward').value;
+                const dept = document.getElementById('filter-dept').value;
+                const status = document.getElementById('filter-status').value;
+
+                if(ward) url += `ward_id=${ward}&`;
+                if(dept) url += `dept_id=${dept}&`;
+                if(status) url += `status=${status}&`;
+
+                const data = await apiFetch(url);
+                currentComplaintsData = data;
+                
+                const tbody = document.getElementById('all-complaints-body');
+                tbody.innerHTML = '';
+                
+                if(data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No data found</td></tr>';
+                    return;
+                }
+
+                data.forEach(c => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>#${c.COMPLAINT_ID}</td>
+                            <td>${c.CITIZEN_NAME}</td>
+                            <td>${c.CATEGORY}</td>
+                            <td>${c.WARD_NAME || '-'}</td>
+                            <td>${c.DEPT_NAME || '-'}</td>
+                            <td><span class="badge badge-${c.STATUS.toLowerCase().replace(' ','-')}">${c.STATUS}</span></td>
+                            <td>${new Date(c.COMPLAINT_DATE).toLocaleDateString()}</td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {}
+        }
+
+        function exportCSV() {
+            if(currentComplaintsData.length === 0) {
+                showToast('No data to export', 'error');
+                return;
+            }
+
+            const headers = ['Complaint ID', 'Citizen', 'Category', 'Ward', 'Department', 'Status', 'Date'];
+            const rows = currentComplaintsData.map(c => [
+                c.COMPLAINT_ID,
+                `"${c.CITIZEN_NAME}"`,
+                c.CATEGORY,
+                `"${c.WARD_NAME || ''}"`,
+                `"${c.DEPT_NAME || ''}"`,
+                c.STATUS,
+                new Date(c.COMPLAINT_DATE).toLocaleDateString()
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "complaints_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NagarSeva - Grievance Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand">
+            <i class="fas fa-landmark"></i> NagarSeva
+        </a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links">
+            <!-- Populated by JS -->
+        </ul>
+    </nav>
+
+    <header style="background: var(--primary-color); color: white; padding: 4rem 2rem; text-align: center;">
+        <h1 style="font-size: 3.5rem; margin-bottom: 1rem; color: var(--white)">Your Voice. Our Responsibility.</h1>
+        <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto 2rem; color: #ccc;">
+            A unified portal to register, track, and resolve community grievances efficiently and transparently.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+            <a href="register.html" class="btn btn-primary">File a Complaint</a>
+            <a href="track_complaint.html" class="btn btn-outline" style="color: white; border-color: white;">Track Complaint</a>
+        </div>
+    </header>
+
+    <section class="container" style="padding-top: 3rem;">
+        <div class="dashboard-stats" id="public-stats">
+            <div class="card stat-card">
+                <i class="fas fa-file-alt" style="font-size: 2rem; color: var(--accent-color)"></i>
+                <h3 class="counter" data-target="0" id="total-complaints">0</h3>
+                <p>Total Complaints</p>
+            </div>
+            <div class="card stat-card">
+                <i class="fas fa-check-circle" style="font-size: 2rem; color: var(--status-resolved)"></i>
+                <h3 class="counter" data-target="0" id="resolved-complaints">0</h3>
+                <p>Resolved This Month</p>
+            </div>
+            <div class="card stat-card">
+                <i class="fas fa-building" style="font-size: 2rem; color: var(--status-assigned)"></i>
+                <h3 class="counter" data-target="0" id="active-depts">0</h3>
+                <p>Active Departments</p>
+            </div>
+            <div class="card stat-card">
+                <i class="fas fa-clock" style="font-size: 2rem; color: var(--status-in-progress)"></i>
+                <h3><span id="avg-time">--</span> Days</h3>
+                <p>Avg Resolution Time</p>
+            </div>
+        </div>
+    </section>
+
+    <section style="background: white; padding: 4rem 2rem;">
+        <div class="container" style="text-align: center;">
+            <h2 style="font-size: 2.5rem; margin-bottom: 2rem;">How It Works</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
+                <div>
+                    <i class="fas fa-user-plus" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                    <h4>1. Register</h4>
+                    <p>Create your citizen account.</p>
+                </div>
+                <div>
+                    <i class="fas fa-edit" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                    <h4>2. Submit Complaint</h4>
+                    <p>Provide details and exact location.</p>
+                </div>
+                <div>
+                    <i class="fas fa-cogs" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                    <h4>3. Auto-Assigned</h4>
+                    <p>System routes it to the right official.</p>
+                </div>
+                <div>
+                    <i class="fas fa-search" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                    <h4>4. Track & Resolve</h4>
+                    <p>Monitor status till resolution.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="container" style="text-align: center; padding: 3rem 2rem;">
+        <h2 style="margin-bottom: 1rem;">Sustainable Development Goals</h2>
+        <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+            <div class="card" style="width: 300px;">
+                <h3 style="color: #00689D; margin-bottom: 0.5rem;">SDG 16</h3>
+                <p>Peace, Justice and Strong Institutions</p>
+            </div>
+            <div class="card" style="width: 300px;">
+                <h3 style="color: #19486A; margin-bottom: 0.5rem;">SDG 17</h3>
+                <p>Partnerships for the Goals</p>
+            </div>
+        </div>
+    </section>
+
+    <footer style="background: var(--primary-color); color: white; text-align: center; padding: 2rem;">
+        <p>Thapar Institute of Engineering and Technology</p>
+        <p>DBMS Project (UCS310) | B.Tech 2nd Year, Computer Engineering</p>
+        <p style="margin-top: 1rem; font-size: 0.9rem; color: #ccc;">Group: Vanshika (1024030163) | Aishwarya Verma (1024030170) | Diya Jain (1024031154)</p>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Fetch stats for homepage
+                const statusData = await apiFetch('/analytics/complaints-by-status');
+                let total = 0;
+                let resolved = 0;
+                
+                statusData.forEach(item => {
+                    total += item.COUNT;
+                    if (item.STATUS === 'Resolved' || item.STATUS === 'Closed') {
+                        resolved += item.COUNT;
+                    }
+                });
+                
+                document.getElementById('total-complaints').setAttribute('data-target', total);
+                document.getElementById('resolved-complaints').setAttribute('data-target', resolved);
+
+                const deptData = await apiFetch('/departments');
+                document.getElementById('active-depts').setAttribute('data-target', deptData.length);
+                
+                // Get avg time for first dept just for display or calculate global average
+                let avgTime = 0;
+                if(deptData.length > 0) {
+                    const stats = await apiFetch(`/departments/${deptData[0].DEPT_ID}/stats`);
+                    avgTime = stats.avg_resolution_days || 0;
+                }
+                document.getElementById('avg-time').innerText = avgTime;
+                
+                animateCounters();
+            } catch (e) {
+                console.error("Could not fetch stats", e);
+            }
+        });
+    </script>
+</body>
+</html>

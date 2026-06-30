@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citizen Dashboard - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="padding-top: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h2>Welcome, <span id="user-name-display" style="color: var(--accent-color)"></span></h2>
+            <a href="complaint_form.html" class="btn btn-primary"><i class="fas fa-plus"></i> New Complaint</a>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="card stat-card">
+                <h3 id="stat-total">0</h3>
+                <p>Total Filed</p>
+            </div>
+            <div class="card stat-card" style="border-top-color: var(--status-pending)">
+                <h3 id="stat-pending">0</h3>
+                <p>Pending</p>
+            </div>
+            <div class="card stat-card" style="border-top-color: var(--status-in-progress)">
+                <h3 id="stat-progress">0</h3>
+                <p>In Progress / Assigned</p>
+            </div>
+            <div class="card stat-card" style="border-top-color: var(--status-resolved)">
+                <h3 id="stat-resolved">0</h3>
+                <p>Resolved</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 1rem;">My Complaints History</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Category</th>
+                            <th>Date</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Department</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="complaints-tbody">
+                        <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        requireAuth('citizen');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userId = sessionStorage.getItem('userId');
+            document.getElementById('user-name-display').innerText = sessionStorage.getItem('name');
+
+            try {
+                const data = await apiFetch(`/complaints/citizen/${userId}`);
+                renderTableAndStats(data);
+            } catch (e) {
+                document.getElementById('complaints-tbody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Failed to load data</td></tr>';
+            }
+        });
+
+        function renderTableAndStats(data) {
+            let pending=0, progress=0, resolved=0;
+            const tbody = document.getElementById('complaints-tbody');
+            tbody.innerHTML = '';
+
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No complaints filed yet.</td></tr>';
+                return;
+            }
+
+            data.forEach(c => {
+                // Stats calc
+                if(c.STATUS === 'Pending') pending++;
+                else if(c.STATUS === 'Resolved' || c.STATUS === 'Closed') resolved++;
+                else progress++;
+
+                // Row render
+                const cdate = new Date(c.COMPLAINT_DATE).toLocaleDateString();
+                const badgeClass = `badge badge-${c.STATUS.toLowerCase().replace(' ','-')}`;
+                const prioClass = `priority-${c.PRIORITY.toLowerCase()}`;
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>#${c.COMPLAINT_ID}</strong></td>
+                        <td>${c.CATEGORY}</td>
+                        <td>${cdate}</td>
+                        <td class="${prioClass}">${c.PRIORITY}</td>
+                        <td><span class="${badgeClass}">${c.STATUS}</span></td>
+                        <td>${c.DEPT_NAME || '-'}</td>
+                        <td>
+                            <a href="track_complaint.html?id=${c.COMPLAINT_ID}" onclick="sessionStorage.setItem('tempTrackId', ${c.COMPLAINT_ID}); window.location.href='track_complaint.html'; return false;" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;">Track</a>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // If user clicks track, we can pre-fill it via logic in track page or just let them search. 
+            // Better: passing via localStorage just to pre-fill search box.
+
+            document.getElementById('stat-total').innerText = data.length;
+            document.getElementById('stat-pending').innerText = pending;
+            document.getElementById('stat-progress').innerText = progress;
+            document.getElementById('stat-resolved').innerText = resolved;
+        }
+
+        // Small override for track button redirection
+        document.addEventListener('click', (e) => {
+            if(e.target.innerText === 'Track' && e.target.tagName === 'A') {
+                setTimeout(() => {
+                    const tid = sessionStorage.getItem('tempTrackId');
+                    if(tid) {
+                        const trackInput = document.getElementById('search-id');
+                        if(trackInput) trackInput.value = tid;
+                        sessionStorage.removeItem('tempTrackId');
+                    }
+                }, 500);
+            }
+        });
+    </script>
+</body>
+</html>

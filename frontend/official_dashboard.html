@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Official Dashboard - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .overdue-row { background-color: #ffebee !important; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="padding-top: 2rem;">
+        <h2 style="margin-bottom: 2rem;">Official Dashboard</h2>
+
+        <div class="dashboard-stats">
+            <div class="card stat-card" style="border-top-color: var(--status-assigned)">
+                <h3 id="stat-assigned">0</h3>
+                <p>Assigned to Me</p>
+            </div>
+            <div class="card stat-card" style="border-top-color: var(--status-resolved)">
+                <h3 id="stat-resolved">0</h3>
+                <p>Resolved</p>
+            </div>
+            <div class="card stat-card" style="border-top-color: var(--status-escalated)">
+                <h3 id="stat-overdue">0</h3>
+                <p>Overdue</p>
+            </div>
+            <div class="card stat-card" style="border-top-color: var(--status-in-progress)">
+                <h3 id="stat-progress">0</h3>
+                <p>In Progress</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3>My Tasks</h3>
+                <input type="text" id="search-tasks" class="form-control" placeholder="Search ID or Category..." style="width: 250px;">
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Category</th>
+                            <th>Ward</th>
+                            <th>Priority</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-tbody">
+                        <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resolution Modal -->
+    <div class="modal-overlay" id="resolve-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('resolve-modal')">&times;</span>
+            <h3 style="margin-bottom: 1.5rem;">Mark as Resolved</h3>
+            <form id="resolve-form">
+                <input type="hidden" id="res-complaint-id">
+                <div class="form-group">
+                    <label>Action Taken Details</label>
+                    <textarea id="res-action" class="form-control" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Cost Incurred (₹) - Optional</label>
+                    <input type="number" id="res-cost" class="form-control" min="0">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Resolution</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        requireAuth('official');
+        let globalTasks = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            fetchTasks();
+
+            document.getElementById('search-tasks').addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                const filtered = globalTasks.filter(t => 
+                    t.COMPLAINT_ID.toString().includes(term) || 
+                    t.CATEGORY.toLowerCase().includes(term)
+                );
+                renderTable(filtered);
+            });
+
+            document.getElementById('resolve-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    await apiFetch('/resolutions', 'POST', {
+                        complaint_id: document.getElementById('res-complaint-id').value,
+                        official_id: sessionStorage.getItem('userId'),
+                        action_taken: document.getElementById('res-action').value,
+                        cost_incurred: document.getElementById('res-cost').value || 0
+                    });
+                    showToast('Complaint resolved successfully!');
+                    closeModal('resolve-modal');
+                    fetchTasks(); // refresh
+                } catch(err){}
+            });
+        });
+
+        async function fetchTasks() {
+            try {
+                const userId = sessionStorage.getItem('userId');
+                globalTasks = await apiFetch(`/complaints/official/${userId}`);
+                renderTable(globalTasks);
+                updateStats(globalTasks);
+            } catch(e) {
+                document.getElementById('tasks-tbody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Error loading tasks</td></tr>';
+            }
+        }
+
+        function updateStats(data) {
+            let assigned=0, resolved=0, overdue=0, progress=0;
+            const now = new Date();
+            
+            data.forEach(t => {
+                if(t.STATUS !== 'Resolved' && t.STATUS !== 'Closed') assigned++;
+                if(t.STATUS === 'Resolved' || t.STATUS === 'Closed') resolved++;
+                if(t.STATUS === 'In Progress') progress++;
+                
+                const dead = new Date(t.DEADLINE_DATE);
+                if(t.STATUS !== 'Resolved' && t.STATUS !== 'Closed' && dead < now) overdue++;
+            });
+            
+            document.getElementById('stat-assigned').innerText = assigned;
+            document.getElementById('stat-resolved').innerText = resolved;
+            document.getElementById('stat-overdue').innerText = overdue;
+            document.getElementById('stat-progress').innerText = progress;
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tasks-tbody');
+            tbody.innerHTML = '';
+            
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No tasks assigned.</td></tr>';
+                return;
+            }
+
+            const now = new Date();
+
+            data.forEach(t => {
+                const deadDate = new Date(t.DEADLINE_DATE);
+                const ddateStr = deadDate.toLocaleDateString();
+                const badgeClass = `badge badge-${t.STATUS.toLowerCase().replace(' ','-')}`;
+                const prioClass = `priority-${t.PRIORITY.toLowerCase()}`;
+                
+                const isOverdue = (t.STATUS !== 'Resolved' && t.STATUS !== 'Closed' && deadDate < now);
+                const rowClass = isOverdue ? 'overdue-row' : '';
+
+                let actionHtml = '';
+                if (t.STATUS === 'Pending' || t.STATUS === 'Assigned' || t.STATUS === 'Escalated') {
+                    actionHtml = `<button onclick="markProgress(${t.COMPLAINT_ID})" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">Mark In Progress</button>`;
+                } else if (t.STATUS === 'In Progress') {
+                    actionHtml = `<button onclick="openResolveModal(${t.COMPLAINT_ID})" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">Resolve</button>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="${rowClass}">
+                        <td><strong>#${t.COMPLAINT_ID}</strong></td>
+                        <td>${t.CATEGORY}</td>
+                        <td>${t.WARD_NAME}</td>
+                        <td class="${prioClass}">${t.PRIORITY}</td>
+                        <td>${ddateStr} ${isOverdue ? '<i class="fas fa-exclamation-circle" style="color:red"></i>' : ''}</td>
+                        <td><span class="${badgeClass}">${t.STATUS}</span></td>
+                        <td>${actionHtml}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function markProgress(cid) {
+            try {
+                await apiFetch(`/complaints/${cid}/status`, 'PUT', { status: 'In Progress' });
+                showToast('Status updated to In Progress');
+                fetchTasks();
+            } catch(e){}
+        }
+
+        function openResolveModal(cid) {
+            document.getElementById('res-complaint-id').value = cid;
+            document.getElementById('res-action').value = '';
+            document.getElementById('res-cost').value = '';
+            openModal('resolve-modal');
+        }
+    </script>
+</body>
+</html>

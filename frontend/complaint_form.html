@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Complaint - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="max-width: 800px; padding-top: 3rem;">
+        <div class="card">
+            <h2 style="margin-bottom: 2rem;">File a New Complaint</h2>
+            <form id="complaint-form">
+                <div class="form-group">
+                    <label>Complaint Category</label>
+                    <select id="category" class="form-control" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="Roads">Roads</option>
+                        <option value="Street Lights">Street Lights</option>
+                        <option value="Water Supply">Water Supply</option>
+                        <option value="Sanitation">Sanitation</option>
+                        <option value="Drainage">Drainage</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Ward Location</label>
+                    <select id="ward" class="form-control" required>
+                        <option value="">Loading wards...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="description" class="form-control" rows="5" minlength="20" required placeholder="Describe the issue in detail (minimum 20 characters)..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Priority Level</label>
+                    <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                        <label style="font-weight:normal"><input type="radio" name="priority" value="Low" required> Low (Minor issue)</label>
+                        <label style="font-weight:normal"><input type="radio" name="priority" value="Medium"> Medium (Nuisance)</label>
+                        <label style="font-weight:normal"><input type="radio" name="priority" value="High"> High (Major disruption)</label>
+                        <label style="font-weight:normal"><input type="radio" name="priority" value="Critical"> Critical (Safety hazard)</label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn btn-primary">Submit Complaint</button>
+                    <a href="citizen_dashboard.html" class="btn btn-outline">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal-overlay" id="success-modal">
+        <div class="modal-content" style="text-align: center;">
+            <i class="fas fa-check-circle" style="font-size: 4rem; color: var(--status-resolved); margin-bottom: 1rem;"></i>
+            <h2>Complaint Registered</h2>
+            <p style="margin: 1rem 0;">Your complaint has been successfully registered and assigned.</p>
+            <div style="background: #f9f9f9; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                <p><strong>Complaint ID:</strong> <span id="modal-cid" style="font-size: 1.2rem; color: var(--primary-color)"></span></p>
+                <p><strong>Expected Resolution By:</strong> <span id="modal-deadline"></span></p>
+            </div>
+            <button onclick="window.location.href='citizen_dashboard.html'" class="btn btn-primary">Go to Dashboard</button>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        requireAuth('citizen');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const wards = await apiFetch('/wards');
+                const wardSelect = document.getElementById('ward');
+                wardSelect.innerHTML = '<option value="">-- Select Ward --</option>';
+                wards.forEach(w => {
+                    wardSelect.innerHTML += `<option value="${w.WARD_ID}">${w.WARD_NAME}</option>`;
+                });
+            } catch (e) {
+                document.getElementById('ward').innerHTML = '<option value="">Error loading wards</option>';
+            }
+
+            document.getElementById('complaint-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const data = {
+                    citizen_id: sessionStorage.getItem('userId'),
+                    ward_id: document.getElementById('ward').value,
+                    category: document.getElementById('category').value,
+                    description: document.getElementById('description').value,
+                    priority: document.querySelector('input[name="priority"]:checked').value
+                };
+
+                try {
+                    const res = await apiFetch('/complaints', 'POST', data);
+                    
+                    document.getElementById('modal-cid').innerText = res.complaint_id;
+                    document.getElementById('modal-deadline').innerText = res.deadline_date;
+                    openModal('success-modal');
+                } catch(err) {}
+            });
+        });
+    </script>
+</body>
+</html>

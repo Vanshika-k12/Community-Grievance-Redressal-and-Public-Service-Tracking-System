@@ -1,0 +1,271 @@
+-- Drop tables in reverse dependency order
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE FEEDBACK CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE ESCALATION CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE RESOLUTION CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE ASSIGNMENT CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE COMPLAINT CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE GOVERNMENT_OFFICIAL CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE CITIZEN CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE DEPARTMENT CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE WARD CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+-- Drop sequences
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_ward_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_citizen_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_dept_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_official_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_complaint_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_assignment_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_resolution_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_escalation_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP SEQUENCE seq_feedback_id'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+
+-- Create sequences
+CREATE SEQUENCE seq_ward_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_citizen_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_dept_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_official_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_complaint_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_assignment_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_resolution_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_escalation_id START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_feedback_id START WITH 1 INCREMENT BY 1;
+
+-- 1. WARD Table
+CREATE TABLE WARD (
+    ward_id NUMBER PRIMARY KEY,
+    ward_name VARCHAR2(100) NOT NULL,
+    councillor_name VARCHAR2(100),
+    population NUMBER
+);
+
+CREATE OR REPLACE TRIGGER trg_ward_pk
+BEFORE INSERT ON WARD
+FOR EACH ROW
+BEGIN
+    IF :NEW.ward_id IS NULL THEN
+        :NEW.ward_id := seq_ward_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 2. CITIZEN Table
+CREATE TABLE CITIZEN (
+    citizen_id NUMBER PRIMARY KEY,
+    name VARCHAR2(100) NOT NULL,
+    phone VARCHAR2(15) UNIQUE NOT NULL,
+    email VARCHAR2(100) UNIQUE,
+    password_hash VARCHAR2(255) NOT NULL,
+    ward_id NUMBER,
+    CONSTRAINT fk_citizen_ward FOREIGN KEY (ward_id) REFERENCES WARD(ward_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_citizen_pk
+BEFORE INSERT ON CITIZEN
+FOR EACH ROW
+BEGIN
+    IF :NEW.citizen_id IS NULL THEN
+        :NEW.citizen_id := seq_citizen_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 3. DEPARTMENT Table
+CREATE TABLE DEPARTMENT (
+    dept_id NUMBER PRIMARY KEY,
+    dept_name VARCHAR2(100) NOT NULL,
+    dept_head VARCHAR2(100),
+    contact_number VARCHAR2(15)
+);
+
+CREATE OR REPLACE TRIGGER trg_dept_pk
+BEFORE INSERT ON DEPARTMENT
+FOR EACH ROW
+BEGIN
+    IF :NEW.dept_id IS NULL THEN
+        :NEW.dept_id := seq_dept_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 4. GOVERNMENT_OFFICIAL Table
+CREATE TABLE GOVERNMENT_OFFICIAL (
+    official_id NUMBER PRIMARY KEY,
+    name VARCHAR2(100) NOT NULL,
+    designation VARCHAR2(100),
+    dept_id NUMBER,
+    ward_id NUMBER,
+    password_hash VARCHAR2(255) NOT NULL,
+    CONSTRAINT fk_official_dept FOREIGN KEY (dept_id) REFERENCES DEPARTMENT(dept_id),
+    CONSTRAINT fk_official_ward FOREIGN KEY (ward_id) REFERENCES WARD(ward_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_official_pk
+BEFORE INSERT ON GOVERNMENT_OFFICIAL
+FOR EACH ROW
+BEGIN
+    IF :NEW.official_id IS NULL THEN
+        :NEW.official_id := seq_official_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 5. COMPLAINT Table
+CREATE TABLE COMPLAINT (
+    complaint_id NUMBER PRIMARY KEY,
+    citizen_id NUMBER,
+    ward_id NUMBER,
+    category VARCHAR2(50) CHECK (category IN ('Roads', 'Street Lights', 'Water Supply', 'Sanitation', 'Drainage', 'Other')),
+    description VARCHAR2(1000) NOT NULL,
+    priority VARCHAR2(20) CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
+    status VARCHAR2(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Assigned', 'In Progress', 'Resolved', 'Closed', 'Escalated')),
+    complaint_date DATE DEFAULT SYSDATE,
+    CONSTRAINT fk_complaint_citizen FOREIGN KEY (citizen_id) REFERENCES CITIZEN(citizen_id),
+    CONSTRAINT fk_complaint_ward FOREIGN KEY (ward_id) REFERENCES WARD(ward_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_complaint_pk
+BEFORE INSERT ON COMPLAINT
+FOR EACH ROW
+BEGIN
+    IF :NEW.complaint_id IS NULL THEN
+        :NEW.complaint_id := seq_complaint_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 6. ASSIGNMENT Table
+CREATE TABLE ASSIGNMENT (
+    assignment_id NUMBER PRIMARY KEY,
+    complaint_id NUMBER,
+    dept_id NUMBER,
+    assigned_to_official NUMBER,
+    assigned_date DATE DEFAULT SYSDATE,
+    deadline_date DATE,
+    CONSTRAINT fk_assignment_complaint FOREIGN KEY (complaint_id) REFERENCES COMPLAINT(complaint_id),
+    CONSTRAINT fk_assignment_dept FOREIGN KEY (dept_id) REFERENCES DEPARTMENT(dept_id),
+    CONSTRAINT fk_assignment_official FOREIGN KEY (assigned_to_official) REFERENCES GOVERNMENT_OFFICIAL(official_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_assignment_pk
+BEFORE INSERT ON ASSIGNMENT
+FOR EACH ROW
+BEGIN
+    IF :NEW.assignment_id IS NULL THEN
+        :NEW.assignment_id := seq_assignment_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 7. RESOLUTION Table
+CREATE TABLE RESOLUTION (
+    resolution_id NUMBER PRIMARY KEY,
+    complaint_id NUMBER UNIQUE,
+    resolved_by_official NUMBER,
+    action_taken VARCHAR2(1000) NOT NULL,
+    resolution_date DATE DEFAULT SYSDATE,
+    cost_incurred NUMBER,
+    CONSTRAINT fk_resolution_complaint FOREIGN KEY (complaint_id) REFERENCES COMPLAINT(complaint_id),
+    CONSTRAINT fk_resolution_official FOREIGN KEY (resolved_by_official) REFERENCES GOVERNMENT_OFFICIAL(official_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_resolution_pk
+BEFORE INSERT ON RESOLUTION
+FOR EACH ROW
+BEGIN
+    IF :NEW.resolution_id IS NULL THEN
+        :NEW.resolution_id := seq_resolution_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 8. ESCALATION Table
+CREATE TABLE ESCALATION (
+    escalation_id NUMBER PRIMARY KEY,
+    complaint_id NUMBER,
+    escalated_from_official NUMBER,
+    escalated_to_official NUMBER,
+    escalation_date DATE DEFAULT SYSDATE,
+    escalation_level NUMBER DEFAULT 1,
+    reason VARCHAR2(1000),
+    CONSTRAINT fk_escalation_complaint FOREIGN KEY (complaint_id) REFERENCES COMPLAINT(complaint_id),
+    CONSTRAINT fk_escalation_from FOREIGN KEY (escalated_from_official) REFERENCES GOVERNMENT_OFFICIAL(official_id),
+    CONSTRAINT fk_escalation_to FOREIGN KEY (escalated_to_official) REFERENCES GOVERNMENT_OFFICIAL(official_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_escalation_pk
+BEFORE INSERT ON ESCALATION
+FOR EACH ROW
+BEGIN
+    IF :NEW.escalation_id IS NULL THEN
+        :NEW.escalation_id := seq_escalation_id.NEXTVAL;
+    END IF;
+END;
+/
+
+-- 9. FEEDBACK Table
+CREATE TABLE FEEDBACK (
+    feedback_id NUMBER PRIMARY KEY,
+    complaint_id NUMBER UNIQUE,
+    citizen_id NUMBER,
+    rating NUMBER CHECK (rating BETWEEN 1 AND 5),
+    comments VARCHAR2(1000),
+    feedback_date DATE DEFAULT SYSDATE,
+    CONSTRAINT fk_feedback_complaint FOREIGN KEY (complaint_id) REFERENCES COMPLAINT(complaint_id),
+    CONSTRAINT fk_feedback_citizen FOREIGN KEY (citizen_id) REFERENCES CITIZEN(citizen_id)
+);
+
+CREATE OR REPLACE TRIGGER trg_feedback_pk
+BEFORE INSERT ON FEEDBACK
+FOR EACH ROW
+BEGIN
+    IF :NEW.feedback_id IS NULL THEN
+        :NEW.feedback_id := seq_feedback_id.NEXTVAL;
+    END IF;
+END;
+/

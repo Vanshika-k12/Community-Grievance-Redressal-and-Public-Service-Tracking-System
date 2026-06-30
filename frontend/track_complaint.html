@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Complaint - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .timeline { position: relative; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+        .timeline::after { content: ''; position: absolute; width: 4px; background-color: #eee; top: 0; bottom: 0; left: 31px; margin-left: -2px; }
+        .timeline-step { padding: 10px 40px; position: relative; background-color: inherit; width: 100%; box-sizing: border-box; }
+        .timeline-step::after { content: ''; position: absolute; width: 20px; height: 20px; right: auto; background-color: white; border: 4px solid #eee; top: 15px; border-radius: 50%; z-index: 1; left: 21px; }
+        .timeline-step.active::after { border-color: var(--accent-color); background-color: var(--accent-color); }
+        .timeline-step.completed::after { border-color: var(--status-resolved); background-color: var(--status-resolved); }
+        .step-content { padding: 15px 25px; background-color: white; position: relative; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        
+        .alert-escalated { background-color: #ffebee; border-left: 5px solid var(--status-escalated); padding: 1rem; margin-top: 1rem; border-radius: 4px; }
+        .resolution-box { background-color: #e8f5e9; border-left: 5px solid var(--status-resolved); padding: 1rem; margin-top: 1rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="max-width: 800px; padding-top: 3rem;">
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="text-align: center; margin-bottom: 1.5rem;">Track Your Complaint</h2>
+            <form id="track-form" style="display: flex; gap: 1rem;">
+                <input type="number" id="search-id" class="form-control" placeholder="Enter Complaint ID" required>
+                <button type="submit" class="btn btn-primary" style="white-space: nowrap;"><i class="fas fa-search"></i> Track</button>
+            </form>
+        </div>
+
+        <div id="result-container" style="display: none;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        document.getElementById('track-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const cid = document.getElementById('search-id').value;
+            
+            try {
+                const data = await apiFetch(`/complaints/${cid}`);
+                renderTracking(data);
+            } catch(err) {
+                document.getElementById('result-container').style.display = 'none';
+                // Error toast already shown by apiFetch
+            }
+        });
+
+        function renderTracking(data) {
+            const container = document.getElementById('result-container');
+            container.style.display = 'block';
+
+            // Determine active step
+            const s = data.STATUS;
+            let s1='completed', s2='', s3='', s4='';
+            if(s === 'Assigned' || s === 'Escalated') { s2='active'; }
+            else if(s === 'In Progress') { s2='completed'; s3='active'; }
+            else if(s === 'Resolved' || s === 'Closed') { s2='completed'; s3='completed'; s4='active'; }
+            
+            let escalationHtml = '';
+            if(data.ESCALATION_LEVEL) {
+                escalationHtml = `
+                    <div class="alert-escalated">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Escalated (Level ${data.ESCALATION_LEVEL})</h4>
+                        <p><strong>Reason:</strong> ${data.ESCALATION_REASON || 'Deadline Exceeded'}</p>
+                    </div>
+                `;
+            }
+
+            let resolutionHtml = '';
+            if(s === 'Resolved' || s === 'Closed') {
+                const rdate = new Date(data.RESOLUTION_DATE).toLocaleDateString();
+                resolutionHtml = `
+                    <div class="resolution-box">
+                        <h4><i class="fas fa-check-double"></i> Resolved on ${rdate}</h4>
+                        <p><strong>Action Taken:</strong> ${data.ACTION_TAKEN}</p>
+                        ${data.COST_INCURRED ? `<p><strong>Cost:</strong> ₹${data.COST_INCURRED}</p>` : ''}
+                    </div>
+                `;
+
+                // Add feedback form if user is the citizen who filed it
+                const currentUserId = sessionStorage.getItem('userId');
+                if(currentUserId && currentUserId == data.CITIZEN_ID && !data.FEEDBACK_RATING) {
+                    resolutionHtml += `
+                        <div class="card" style="margin-top: 1rem; background: white;">
+                            <h4>Provide Feedback</h4>
+                            <form id="feedback-form" style="margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label>Rating (1-5)</label>
+                                    <input type="number" id="fb-rating" class="form-control" min="1" max="5" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Comments</label>
+                                    <textarea id="fb-comments" class="form-control" rows="2"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm">Submit Feedback</button>
+                            </form>
+                        </div>
+                    `;
+                } else if(data.FEEDBACK_RATING) {
+                    resolutionHtml += `
+                        <div style="margin-top: 1rem;">
+                            <p><strong>Citizen Feedback:</strong> ${data.FEEDBACK_RATING}/5 ⭐ - "${data.FEEDBACK_COMMENTS || 'No comments'}"</p>
+                        </div>
+                    `;
+                }
+            }
+
+            const cdate = new Date(data.COMPLAINT_DATE).toLocaleDateString();
+            const ddate = data.DEADLINE_DATE ? new Date(data.DEADLINE_DATE).toLocaleDateString() : 'N/A';
+            const badgeClass = `badge badge-${data.STATUS.toLowerCase().replace(' ','-')}`;
+            const prioClass = `priority-${data.PRIORITY.toLowerCase()}`;
+
+            container.innerHTML = `
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 1rem;">
+                        <div>
+                            <h3 style="margin-bottom: 0.5rem;">Complaint #${data.COMPLAINT_ID}</h3>
+                            <p><strong>Filed:</strong> ${cdate} | <strong>Category:</strong> ${data.CATEGORY}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="${badgeClass}" style="display:inline-block; margin-bottom:0.5rem;">${data.STATUS}</span><br>
+                            Priority: <span class="${prioClass}">${data.PRIORITY}</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="margin-bottom: 0.5rem;">Details</h4>
+                        <p style="white-space: pre-line;">${data.DESCRIPTION}</p>
+                        <br>
+                        <p><strong>Citizen:</strong> ${data.CITIZEN_NAME}</p>
+                        <p><strong>Ward:</strong> ${data.WARD_NAME}</p>
+                    </div>
+
+                    ${escalationHtml}
+                    ${resolutionHtml}
+
+                    <div style="margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem;">
+                        <h4 style="margin-bottom: 1.5rem; text-align:center;">Status Timeline</h4>
+                        <div class="timeline">
+                            <div class="timeline-step ${s1}">
+                                <div class="step-content">
+                                    <h5>Filed</h5>
+                                    <p style="font-size: 0.9rem; color:#666;">${cdate}</p>
+                                </div>
+                            </div>
+                            <div class="timeline-step ${s2}">
+                                <div class="step-content">
+                                    <h5>Assigned</h5>
+                                    <p style="font-size: 0.9rem; color:#666;">
+                                        ${data.DEPT_NAME || 'Pending Dept'}<br>
+                                        Official: ${data.OFFICIAL_NAME || 'Pending'}<br>
+                                        Deadline: ${ddate}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="timeline-step ${s3}">
+                                <div class="step-content">
+                                    <h5>In Progress</h5>
+                                </div>
+                            </div>
+                            <div class="timeline-step ${s4}">
+                                <div class="step-content">
+                                    <h5>Resolved</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Attach feedback listener if exists
+            const fbForm = document.getElementById('feedback-form');
+            if(fbForm) {
+                fbForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    try {
+                        await apiFetch('/feedback', 'POST', {
+                            complaint_id: data.COMPLAINT_ID,
+                            citizen_id: data.CITIZEN_ID,
+                            rating: document.getElementById('fb-rating').value,
+                            comments: document.getElementById('fb-comments').value
+                        });
+                        showToast('Feedback submitted!');
+                        // Refresh
+                        document.getElementById('track-form').dispatchEvent(new Event('submit'));
+                    } catch(err){}
+                });
+            }
+        }
+    </script>
+</body>
+</html>

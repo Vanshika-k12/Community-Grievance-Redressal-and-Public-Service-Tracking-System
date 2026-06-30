@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - NagarSeva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 2rem; }
+        .tab { padding: 1rem; cursor: pointer; flex: 1; text-align: center; font-family: var(--font-heading); font-size: 1.2rem; font-weight: 600; color: #666; transition: 0.3s; }
+        .tab.active { border-bottom: 3px solid var(--accent-color); color: var(--primary-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand"><i class="fas fa-landmark"></i> NagarSeva</a>
+        <div class="hamburger"><i class="fas fa-bars"></i></div>
+        <ul class="nav-links"></ul>
+    </nav>
+
+    <div class="container" style="max-width: 500px; padding-top: 3rem;">
+        <div class="card">
+            <h2 style="text-align: center; margin-bottom: 1rem;">Login</h2>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('citizen')">Citizen</div>
+                <div class="tab" onclick="switchTab('official')">Official</div>
+                <div class="tab" onclick="switchTab('admin')">Admin</div>
+            </div>
+
+            <!-- Citizen Login -->
+            <div id="citizen-form" class="tab-content active">
+                <form onsubmit="handleLogin(event, 'citizen')">
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="text" id="citizen-phone" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="citizen-password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Login as Citizen</button>
+                </form>
+                <p style="text-align: center; margin-top: 1rem;">Don't have an account? <a href="register.html" style="color: var(--accent-color)">Register here</a>.</p>
+            </div>
+
+            <!-- Official Login -->
+            <div id="official-form" class="tab-content">
+                <form onsubmit="handleLogin(event, 'official')">
+                    <div class="form-group">
+                        <label>Employee ID</label>
+                        <input type="number" id="official-id" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="official-password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Login as Official</button>
+                </form>
+            </div>
+
+            <!-- Admin Login -->
+            <div id="admin-form" class="tab-content">
+                <form onsubmit="handleLogin(event, 'admin')">
+                    <div class="form-group">
+                        <label>Admin ID</label>
+                        <input type="number" id="admin-id" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="admin-password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; background: var(--primary-color); color: white;">Login as Admin</button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        function switchTab(role) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${role}-form`).classList.add('active');
+        }
+
+        async function handleLogin(e, role) {
+            e.preventDefault();
+            
+            const data = { role };
+            
+            if(role === 'citizen') {
+                data.phone = document.getElementById('citizen-phone').value;
+                data.password = document.getElementById('citizen-password').value;
+            } else {
+                data.employee_id = document.getElementById(`${role}-id`).value;
+                data.password = document.getElementById(`${role}-password`).value;
+            }
+
+            try {
+                const res = await apiFetch('/login', 'POST', data);
+                sessionStorage.setItem('token', res.token);
+                sessionStorage.setItem('role', res.role);
+                sessionStorage.setItem('name', res.name);
+                sessionStorage.setItem('userId', res.id);
+                
+                showToast(`Welcome back, ${res.name}!`);
+                
+                setTimeout(() => {
+                    if(res.role === 'citizen') window.location.href = 'citizen_dashboard.html';
+                    else if(res.role === 'official') window.location.href = 'official_dashboard.html';
+                    else if(res.role === 'admin') window.location.href = 'admin_dashboard.html';
+                }, 1000);
+            } catch(err) {} // Error handled in apiFetch
+        }
+    </script>
+</body>
+</html>
